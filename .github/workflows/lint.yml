@@ -27,7 +27,9 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install -r requirements_test.txt
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements_test.txt
         shell: bash
 
       - name: Running Yamllint
@@ -35,5 +37,7 @@ jobs:
         shell: bash
 
       - name: Running PyLint
-        run: pylint --recursive=y .
+        run: |
+          cd lib/
+          pylint --recursive=y .
         shell: bash

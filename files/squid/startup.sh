@@ -50,7 +50,7 @@ create_missing_certs() {
 
 recreate_ssldb() {
   echo ''
-  echo '### CREATING SSL-DB ###'
+  echo '### RE-CREATING SSL-DB ###'
   rm -rf "$SQUID_DIR_SSLDB"
 
   SQUID_SSLDB_SIZE=$(grep 'sslproxy_session_cache_size' < "$SQUID_CONFIG" | cut -d ' ' -f 2)

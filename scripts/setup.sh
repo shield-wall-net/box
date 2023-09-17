@@ -19,6 +19,7 @@ function log() {
   echo ''
   echo "### $1 ###"
   echo ''
+  sleep 2
 }
 
 function insert_after() {
@@ -32,6 +33,7 @@ function insert_after() {
 }
 
 function new_service() {
+  echo "Enabling & starting $1.service ..."
   systemctl daemon-reload
   systemctl enable "$1.service"
   systemctl start "$1.service"
@@ -94,7 +96,12 @@ mkdir -p "$DIR_LIB" "$DIR_SCRIPT"
 chown "$USER":"$USER" "$DIR_LIB" "$DIR_SCRIPT"
 chmod 0750 "$DIR_LIB" "$DIR_SCRIPT"
 
-log 'INSTALLING DOCKER (to run dockerized packages)'
+log 'UPDATING DEFAULT APT-REPOSITORIES'
+rm '/etc/apt/sources.list'
+wget -4 "${REPO_BOX}/files/apt/sources.list" -O '/etc/apt/sources.list'
+sed -i "s/CODENAME/$CODENAME/g" '/etc/apt/sources.list'
+
+log 'INSTALLING DOCKER (containerized packages)'
 DOCKER_GPG_FILE='/usr/share/keyrings/docker-archive-keyring.gpg'
 DOCKER_REPO_FILE='/etc/apt/sources.list.d/docker.list'
 
@@ -106,9 +113,12 @@ fi
 
 if ! [ -f "$DOCKER_REPO_FILE" ]
 then
-  docker_repo="deb [arch=${CPU_ARCH} signed-by=${DOCKER_GPG_FILE}] https://download.docker.com/linux/${DISTRO} ${CODENAME} stable"
-  echo "$docker_repo" > "$DOCKER_REPO_FILE"
+  docker_repo="# ShieldWall managed\ndeb [arch=${CPU_ARCH} signed-by=${DOCKER_GPG_FILE}] https://download.docker.com/linux/${DISTRO} ${CODENAME} stable"
+  printf '%s' "$docker_repo" > "$DOCKER_REPO_FILE"
 fi
+
+chmod 640 "$DOCKER_GPG_FILE" "$DOCKER_REPO_FILE"
+chown "$USER":"$USER" "$DOCKER_GPG_FILE" "$DOCKER_REPO_FILE"
 
 apt update
 apt -y install docker-ce containerd.io
@@ -194,6 +204,6 @@ log 'SYSCTL CONFIG'
 wget -4 "${REPO_CTRL}/files/nftables/main.conf" -O '/tmp/sysctl.conf'
 grep -v "{" < '/tmp/sysctl.conf' > '/etc/sysctl.d/shieldwall.conf'
 chmod 640 '/etc/sysctl.d/shieldwall.conf'
-chown -R "$USER":"$USER" '/etc/sysctl.d/shieldwall.conf'
+chown "$USER":"$USER" '/etc/sysctl.d/shieldwall.conf'
 
 log 'FINISHED! Please reboot the system!'

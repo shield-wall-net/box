@@ -2,6 +2,12 @@
 
 set -euo pipefail
 
+echo ''
+echo '######################'
+echo '### SHIELDWALL BOX ###'
+echo '######################'
+echo ''
+
 if [[ "$(id -u)" != '0' ]]
 then
   echo "ERROR: Script needs to be ran as root!"
@@ -66,8 +72,13 @@ apt update
 apt -y --upgrade install openssl python3 wget gpg lsb-release apt-transport-https ca-certificates gnupg curl net-tools dnsutils
 
 log 'INSTALLING PACKET-FILTER'
-apt -y remove ufw firewalld* iptables* arptables ebtables xtables*
-apt -y purge ufw firewalld* iptables* arptables ebtables xtables*
+apt -y remove ufw firewalld* arptables ebtables xtables*
+apt -y purge ufw firewalld* arptables ebtables xtables*
+if ! [ -f '/etc/systemd/system/docker.service.d/override.conf' ]
+then
+  apt -y remove iptables*
+  apt -y purge iptables*
+fi
 apt -y --upgrade install nftables
 
 log 'INSTALLING SYSLOG'
@@ -114,8 +125,8 @@ fi
 
 if ! [ -f "$DOCKER_REPO_FILE" ]
 then
-  docker_repo="# ShieldWall managed\ndeb [arch=${CPU_ARCH} signed-by=${DOCKER_GPG_FILE}] https://download.docker.com/linux/${DISTRO} ${CODENAME} stable"
-  printf '%s' "$docker_repo" > "$DOCKER_REPO_FILE"
+  docker_repo="deb [arch=${CPU_ARCH} signed-by=${DOCKER_GPG_FILE}] https://download.docker.com/linux/${DISTRO} ${CODENAME} stable"
+  echo "$docker_repo" > "$DOCKER_REPO_FILE"
 fi
 
 chmod 640 "$DOCKER_GPG_FILE" "$DOCKER_REPO_FILE"
@@ -202,9 +213,12 @@ chown -R "$USER":"$USER" /etc/nftables*
 new_service 'nftables'
 
 log 'SYSCTL CONFIG'
-wget -4 "${REPO_CTRL}/files/nftables/main.conf" -O '/tmp/sysctl.conf'
+wget -4 "${REPO_CTRL}/templates/sysctl.j2" -O '/tmp/sysctl.conf'
 grep -v "{" < '/tmp/sysctl.conf' > '/etc/sysctl.d/shieldwall.conf'
 chmod 640 '/etc/sysctl.d/shieldwall.conf'
 chown "$USER":"$USER" '/etc/sysctl.d/shieldwall.conf'
 
-log 'FINISHED! Please reboot the system!'
+echo '#########################################'
+log 'SETUP FINISHED! Please reboot the system!'
+
+exit 0

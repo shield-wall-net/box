@@ -60,6 +60,13 @@ DIR_CNF='/etc/shieldwall'
 
 cd '/tmp/'
 
+log 'SETTING DEFAULT LANGUAGE'
+export LANG="en_US.UTF-8"
+export LANGUAGE="en_US.UTF-8"
+export LC_ALL="en_US.UTF-8"
+update-locale LANG=en_US.UTF-8
+dpkg-reconfigure --frontend=noninteractive locales
+
 log 'INSTALLING TIMESYNC'
 apt install systemd-timesyncd
 printf '[Time]\nNTP=0.pool.ntp.org 1.pool.ntp.org\n' > '/etc/systemd/timesyncd.conf'
@@ -73,8 +80,10 @@ apt update
 apt -y --upgrade install openssl python3 wget gpg lsb-release apt-transport-https ca-certificates gnupg curl net-tools dnsutils zip
 
 log 'DOWNLOADING SETUP FILES'
-wget "https://codeload.github.com/shield-wall-net/box/zip/refs/heads/${BOX_VERSION}" -O '/tmp/shieldwall_box.zip'
 DIR_SETUP="/tmp/box-${BOX_VERSION}"
+rm -rf "$DIR_SETUP"
+wget "https://codeload.github.com/shield-wall-net/box/zip/refs/heads/${BOX_VERSION}" -O '/tmp/shieldwall_box.zip'
+unzip 'shieldwall_box.zip'
 
 log 'INSTALLING PACKET-FILTER'
 apt -y remove ufw firewalld* arptables ebtables xtables*
@@ -87,7 +96,7 @@ fi
 apt -y --upgrade install nftables
 
 log 'INSTALLING SYSLOG'
-apt -y --upgrade install rsyslog rsyslog-openssl logrotate
+apt -y --upgrade install rsyslog rsyslog-gnutls logrotate
 
 log 'INSTALLING PROXY'
 apt -y --upgrade install squid-openssl
@@ -103,19 +112,23 @@ then
   CPU_ARCH='amd64'
 fi
 
-if ! grep -q "$USER" < /etc/passwd
+if ! grep -q "$USER" < '/etc/passwd'
 then
   useradd "$USER" --shell /bin/bash --home-dir "$DIR_HOME" --create-home --uid "$USER_ID"
 fi
 chown -R "$USER":'root' "$DIR_HOME"
 chmod 750 "$DIR_HOME"
 
+if ! grep -q 'ssl-cert' < '/etc/group'
+then
+  groupadd 'ssl-cert'
+fi
+
 mkdir -p "$DIR_LIB" "$DIR_SCRIPT" "$DIR_LOG" "$DIR_CNF"
 chown "$USER" "$DIR_LIB" "$DIR_CNF"
 chown "$USER":"$USER" "$DIR_SCRIPT" "$DIR_LOG"
 chmod 750 "$DIR_LIB" "$DIR_SCRIPT" "$DIR_CNF"
 chmod 770 "$DIR_LOG"
-chmod 700 "${DIR_CNF}/ssl"
 
 touch "${DIR_CNF}/update.env"
 chown "$USER" "${DIR_CNF}/update.env"
@@ -131,7 +144,6 @@ then
   ln -s '/etc/ssl/certs/shieldwall.ca.crt' '/etc/ssl/certs/shieldwall.trusted_cas.crt'
 fi
 chown "$USER" '/etc/ssl/certs/shieldwall.box.crt' '/etc/ssl/private/shieldwall.box.key' '/etc/ssl/certs/shieldwall.ca.crt'
-groupadd 'ssl-cert'
 chown "$USER":'ssl-cert' '/etc/ssl/private'
 chmod 750 '/etc/ssl/private'
 
@@ -256,7 +268,7 @@ chown "$USER" /etc/rsyslog.d/*shieldwall*
 chown "$USER" '/etc/logrotate.d/shieldwall'
 
 new_service 'rsyslog'
-new_service 'logrotate'
+systemctl restart logrotate.service
 
 echo '#########################################'
 log 'SETUP FINISHED! Please reboot the system!'

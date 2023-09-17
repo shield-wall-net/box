@@ -65,9 +65,10 @@ log 'INSTALLING DEPENDENCIES & UTILS'
 apt update
 apt -y --upgrade install openssl python3 wget gpg lsb-release apt-transport-https ca-certificates gnupg curl net-tools dnsutils
 
-log 'INSTALLING FIREWALL'
+log 'INSTALLING PACKET-FILTER'
+apt -y remove ufw firewalld* iptables* arptables ebtables xtables*
+apt -y purge ufw firewalld* iptables* arptables ebtables xtables*
 apt -y --upgrade install nftables
-apt -y remove ufw
 
 log 'INSTALLING SYSLOG'
 apt -y --upgrade install rsyslog rsyslog-gnutls logrotate

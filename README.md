@@ -82,3 +82,10 @@ vg0
 ```
 
 Run the setup-script:
+
+```bash
+apt install wget
+wget https://raw.githubusercontent.com/shield-wall-net/box/latest/scripts/setup.sh
+bash setup.sh
+# reboot
+```

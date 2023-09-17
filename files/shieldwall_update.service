@@ -1,27 +1,23 @@
 # ShieldWall managed
 
 [Unit]
-Description=ShieldWall firewall - box service
+Description=ShieldWall firewall - update service
 Documentation=https://docs.shield-wall.net
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /var/local/lib/shieldwall/main.py
+ExecStart=/usr/bin/python3 /var/local/lib/shieldwall/update/main.py
 ExecReload=/bin/kill -10 $MAINPID
 
 User=shieldwall
 Group=shieldwall
-Restart=on-failure
-RestartSec=10s
 
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=shieldwall_box
+SyslogIdentifier=shieldwall_update
 
 Environment="PYTHONUNBUFFERED=1"
 Environment="PYTHONIOENCODING=utf8"
-
-[Install]
-WantedBy=multi-user.target
+EnvironmentFile="/etc/shieldwall/update.env"

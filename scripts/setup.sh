@@ -94,7 +94,7 @@ mkdir -p "$DIR_LIB" "$DIR_SCRIPT"
 chown "$USER":"$USER" "$DIR_LIB" "$DIR_SCRIPT"
 chmod 0750 "$DIR_LIB" "$DIR_SCRIPT"
 
-log "INSTALLING DOCKER (to run dockerized packages)"
+log 'INSTALLING DOCKER (to run dockerized packages)'
 DOCKER_GPG_FILE='/usr/share/keyrings/docker-archive-keyring.gpg'
 DOCKER_REPO_FILE='/etc/apt/sources.list.d/docker.list'
 
@@ -156,7 +156,7 @@ squid_create_dir "$SQUID_DIR_SSL"
 squid_create_dir "$SQUID_DIR_LIB"
 new_service 'squid'
 
-log "ADDING FIREWALL BASE CONFIG"
+log 'ADDING FIREWALL BASE CONFIG'
 modprobe nft_ct
 modprobe nft_log
 modprobe nft_nat
@@ -178,7 +178,7 @@ wget -4 "${REPO_BOX}/files/nftables/override.conf" -O '/etc/systemd/system/nftab
 chown "$USER" '/etc/systemd/system/nftables.service.d/override.conf'
 
 wget -4 "${REPO_BOX}/files/nftables/main.conf" -O '/etc/nftables.conf'
-wget -4 "${REPO_CTRL}/templates/firewall/nftables_box_base.j2" -O '/tmp/nftables_managed.j2'
+wget -4 "${REPO_CTRL}/templates/packet_filter/nftables_box_base.j2" -O '/tmp/nftables_managed.j2'
 
 insert_nftables_block 'input'
 insert_nftables_block 'prerouting_dnat'
@@ -189,3 +189,11 @@ chmod 750 '/etc/nftables.d/'
 chmod 640 '/etc/nftables.conf' '/etc/nftables.d/managed.conf'
 chown -R "$USER":"$USER" /etc/nftables*
 new_service 'nftables'
+
+log 'SYSCTL CONFIG'
+wget -4 "${REPO_CTRL}/files/nftables/main.conf" -O '/tmp/sysctl.conf'
+grep -v "{" < '/tmp/sysctl.conf' > '/etc/sysctl.d/shieldwall.conf'
+chmod 640 '/etc/sysctl.d/shieldwall.conf'
+chown -R "$USER":"$USER" '/etc/sysctl.d/shieldwall.conf'
+
+log 'FINISHED! Please reboot the system!'

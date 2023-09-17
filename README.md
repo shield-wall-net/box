@@ -10,26 +10,50 @@ ShieldWall firewalls are designed to be [managed centrally by their linked contr
 
 ## Box
 
-- [ ] NFTables firewall
-- [ ] DNS Server
-- [ ] DHCP Server
-- [ ] Logging
-  - [ ] Rsyslog & Logrotate
-  - [ ] Forwarding to controller
-- [ ] Squid Proxy
-  - [ ] Being able to process HTTP+S
-  - [ ] SSL-Bump mode
-  - [ ] SSL-Intercept mode
-- [ ] Routing
-  - [ ] Static
-  - [ ] Gateway-Groups
-- [ ] VPN
-  - [ ] Client to Site
-    - [ ] OpenVPN
-    - [ ] WireGuard
-  - [ ] Site to Site
-    - [ ] WireGuard
-    - [ ] IPSec
+- [ ] Central management
+  - [ ] Minimal SQLite-DB to store management information
+  - [ ] Applying package version change
+  - [ ] Applying configuration
+    - [ ] Configuration validation
+
+       Check before applying - using 'validate' flag
+       Configuration rollback if failed
+
+  - [ ] Applying sysctl settings
+  - [ ] Pushing system information
+    - [ ] Package versions
+    - [ ] Config versions
+    - [ ] Content of config files on disk
+    - [ ] Running processes
+    - [ ] Resource allocation (*Partitions, Disks, RAM, CPU, NICs*)
+    - [ ] Service states
+    - [ ] HA state
+
+- [ ] Packages
+  - [x] [NFTables packet-filter](https://wiki.nftables.org/wiki-nftables/index.php/What_is_nftables%3F)
+    - [ ] DNS-based variables
+    - [ ] IPList variables
+    - [ ] Failover variables
+  - [ ] DNS Server
+  - [ ] DHCP Server
+  - [ ] Logging
+    - [ ] Rsyslog & Logrotate
+    - [ ] Forwarding to controller
+  - [ ] Squid Proxy
+    - [x] Being able to process HTTP+S
+    - [x] SSL-Bump mode
+    - [ ] SSL-Intercept mode
+  - [ ] Routing
+    - [ ] Static
+    - [ ] Gateway-Groups
+  - [ ] VPN
+    - [ ] Client to Site
+      - [ ] OpenVPN
+      - [ ] WireGuard
+    - [ ] Site to Site
+      - [ ] WireGuard
+      - [ ] IPSec
+
 - [ ] High Availability
   - [ ] DHCP (*Lease sync*)
   - [ ] Sync connection tracking

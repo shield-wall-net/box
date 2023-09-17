@@ -129,7 +129,7 @@ then
   echo "$docker_repo" > "$DOCKER_REPO_FILE"
 fi
 
-chmod 640 "$DOCKER_GPG_FILE" "$DOCKER_REPO_FILE"
+chmod 644 "$DOCKER_GPG_FILE" "$DOCKER_REPO_FILE"
 chown "$USER":"$USER" "$DOCKER_GPG_FILE" "$DOCKER_REPO_FILE"
 
 apt update

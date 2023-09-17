@@ -12,14 +12,13 @@ ShieldWall firewalls are designed to be [managed centrally by their linked contr
 
 - [ ] Central management
   - [ ] Minimal SQLite-DB to store management information
-  - [ ] Applying package version change
+  - [ ] Package up- & downgrade
   - [ ] Applying configuration
     - [ ] Configuration validation
 
        Check before applying - using 'validate' flag
        Configuration rollback if failed
 
-  - [ ] Applying sysctl settings
   - [ ] Pushing system information
     - [ ] Package versions
     - [ ] Config versions
@@ -34,6 +33,7 @@ ShieldWall firewalls are designed to be [managed centrally by their linked contr
     - [ ] DNS-based variables
     - [ ] IPList variables
     - [ ] Failover variables
+    - [x] Sysctl settings
   - [ ] DNS Server
   - [ ] DHCP Server
   - [ ] Logging

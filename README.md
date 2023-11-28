@@ -27,6 +27,7 @@ ShieldWall firewalls are designed to be [managed centrally by their linked contr
     - [ ] Resource allocation (*Partitions, Disks, RAM, CPU, NICs*)
     - [ ] Service states
     - [ ] HA state
+    - [ ] NetFlow forwarding
 
 - [ ] Packages
   - [x] [NFTables packet-filter](https://wiki.nftables.org/wiki-nftables/index.php/What_is_nftables%3F)
@@ -55,9 +56,9 @@ ShieldWall firewalls are designed to be [managed centrally by their linked contr
       - [ ] IPSec
 
 - [ ] High Availability
+  - [ ] Floating IPs (*VRRP/VIP*)
   - [ ] DHCP (*Lease sync*)
   - [ ] Sync connection tracking
-  - [ ] Shared IPs (*VRRP/VIP*)
 
 ----
 

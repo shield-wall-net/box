@@ -77,7 +77,7 @@ sleep 5
 
 log 'INSTALLING DEPENDENCIES & UTILS'
 apt update
-apt -y --upgrade install openssl python3 wget gpg lsb-release apt-transport-https ca-certificates gnupg curl net-tools dnsutils zip
+apt -y --upgrade install openssl python3 wget gpg lsb-release apt-transport-https ca-certificates gnupg curl net-tools dnsutils zip ncdu
 
 log 'DOWNLOADING SETUP FILES'
 DIR_SETUP="/tmp/box-${BOX_VERSION}"
@@ -228,16 +228,16 @@ modprobe nft_reject
 
 function insert_nftables_block() {
     mark="$1"
-    cp "${DIR_SETUP}/files/nftables/setup_${mark}.conf" "/tmp/nftables_setup_${mark}.conf"
+    cp "${DIR_SETUP}/files/packet_filter/setup_${mark}.conf" "/tmp/nftables_setup_${mark}.conf"
     to_insert=$(cat "/tmp/nftables_setup_${mark}.conf")
     insert_after '/tmp/nftables_managed.j2' "# MARK: INSERT BOX-SETUP ${mark}" "$to_insert"
 }
 
 mkdir -p '/etc/nftables.d/' '/etc/systemd/system/nftables.service.d/'
-cp "${DIR_SETUP}/files/nftables/override.conf" '/etc/systemd/system/nftables.service.d/override.conf'
+cp "${DIR_SETUP}/files/packet_filter/override.conf" '/etc/systemd/system/nftables.service.d/override.conf'
 chown "$USER" '/etc/systemd/system/nftables.service.d/override.conf'
 
-cp "${DIR_SETUP}/files/nftables/main.conf" '/etc/nftables.conf'
+cp "${DIR_SETUP}/files/packet_filter/main.conf" '/etc/nftables.conf'
 wget -4 "${REPO_CTRL}/templates/packet_filter/nftables_box_base.j2" -O '/tmp/nftables_managed.j2'
 
 insert_nftables_block 'input'
@@ -262,7 +262,7 @@ cp "${DIR_SETUP}/files/rsyslog/box.conf" '/etc/rsyslog.d/1_shieldwall_box.conf'
 cp "${DIR_SETUP}/files/rsyslog/update.conf" '/etc/rsyslog.d/1_shieldwall_update.conf'
 cp "${DIR_SETUP}/files/rsyslog/nftables.conf" '/etc/rsyslog.d/1_shieldwall_nftables.conf'
 cp "${DIR_SETUP}/files/rsyslog/proxy.conf" '/etc/rsyslog.d/1_shieldwall_proxy.conf'
-cp "${DIR_SETUP}/files/logrotate.conf" '/etc/logrotate.d/shieldwall'
+cp "${DIR_SETUP}/files/logrotate" '/etc/logrotate.d/shieldwall'
 
 chown "$USER" /etc/rsyslog.d/*shieldwall*
 chown "$USER" '/etc/logrotate.d/shieldwall'

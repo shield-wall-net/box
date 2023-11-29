@@ -1,0 +1,27 @@
+# ShieldWall managed
+
+[Unit]
+Description=ShieldWall firewall - Prometheus node-exporter (system stats/metrics)
+Documentation=https://docs.shield-wall.net
+Documentation=https://github.com/prometheus/node_exporter
+Documentation=https://github.com/prometheus-community/PushProx
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/prometheus_exporter.sh
+ExecStop=/usr/bin/pkill -f prometheus
+
+User=prometheus_exporter
+Group=prometheus_exporter
+Restart=on-failure
+RestartSec=10s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=prometheus_exporter
+
+[Install]
+WantedBy=multi-user.target
+

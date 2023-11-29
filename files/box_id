@@ -1,0 +1,4 @@
+# generate UUID for each box that registers on the controller
+# scripts can pull the UUID via `tail -n 1 /etc/shieldwall_id.txt`
+# FQDN: ${UUID}.box.shieldwall
+# add it to /etc/hosts for 127.0.0.1

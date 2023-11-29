@@ -54,6 +54,7 @@ ShieldWall firewalls are designed to be [managed centrally by their linked contr
     - [ ] Site to Site
       - [ ] WireGuard
       - [ ] IPSec
+  - [ ] Reverse Proxy
 
 - [ ] High Availability
   - [ ] Floating IPs (*VRRP/VIP*)

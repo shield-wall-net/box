@@ -86,23 +86,21 @@ wget "https://codeload.github.com/shield-wall-net/box/zip/refs/heads/${BOX_VERSI
 unzip 'shieldwall_box.zip'
 
 log 'INSTALLING PACKET-FILTER'
-apt -y remove ufw firewalld* arptables ebtables xtables*
-apt -y purge ufw firewalld* arptables ebtables xtables*
-if ! [ -f '/etc/systemd/system/docker.service.d/override.conf' ]
-then
-  apt -y remove iptables*
-  apt -y purge iptables*
-fi
+apt -y remove ufw firewalld* arptables ebtables xtables* iptables*
+apt -y purge ufw firewalld* arptables ebtables xtables* iptables*
 apt -y --upgrade install nftables
 
 log 'INSTALLING SYSLOG'
 apt -y --upgrade install rsyslog rsyslog-gnutls logrotate
 
+log 'INSTALLING NETFLOW'
+apt -y --upgrade install softflowd
+
 log 'INSTALLING PROXY'
 apt -y --upgrade install squid-openssl
 
 log 'CREATING SERVICE-USER & DIRECTORIES'
-DISTRO=$(lsb_release -i -s | tr '[:upper:]' '[:lower:]')
+#DISTRO=$(lsb_release -i -s | tr '[:upper:]' '[:lower:]')
 CODENAME=$(lsb_release -c -s | tr '[:upper:]' '[:lower:]')
 CPU_ARCH=$(uname -i)
 # BOX_IPS=$(ip a | grep inet | cut -d ' ' -f6 | cut -d '/' -f1)
@@ -152,35 +150,7 @@ rm '/etc/apt/sources.list'
 cp "${DIR_SETUP}/files/apt/sources.list" '/etc/apt/sources.list'
 sed -i "s/CODENAME/$CODENAME/g" '/etc/apt/sources.list'
 
-log 'INSTALLING DOCKER (containerized packages)'
-DOCKER_GPG_FILE='/usr/share/keyrings/docker-archive-keyring.gpg'
-DOCKER_REPO_FILE='/etc/apt/sources.list.d/docker.list'
-
-if ! [ -f "$DOCKER_GPG_FILE" ]
-then
-  wget -4 "https://download.docker.com/linux/${DISTRO}/gpg" -O "${DOCKER_GPG_FILE}_armored"
-  gpg --dearmor < "${DOCKER_GPG_FILE}_armored" > "$DOCKER_GPG_FILE"
-fi
-
-if ! [ -f "$DOCKER_REPO_FILE" ]
-then
-  docker_repo="deb [arch=${CPU_ARCH} signed-by=${DOCKER_GPG_FILE}] https://download.docker.com/linux/${DISTRO} ${CODENAME} stable"
-  echo "$docker_repo" > "$DOCKER_REPO_FILE"
-fi
-
-chmod 644 "$DOCKER_GPG_FILE" "$DOCKER_REPO_FILE"
-chown "$USER" "$DOCKER_GPG_FILE" "$DOCKER_REPO_FILE"
-
-apt update
-apt -y install docker-ce containerd.io
-
-mkdir -p '/etc/systemd/system/docker.service.d/'
-cp "${DIR_SETUP}/files/docker.override.conf" '/etc/systemd/system/docker.service.d/override.conf'
-chown "$USER" '/etc/systemd/system/docker.service.d/override.conf'
-new_service 'docker'
-
 log 'ADDING PROXY BASE CONFIG'
-# dockerized proxy would be preferred; but it does not work as docker DNAT's the traffic sent to its listener
 SQUID_USER='proxy'
 SQUID_DIR_CONF='/etc/squid'
 SQUID_DIR_LIB='/var/lib/squid'
@@ -257,18 +227,40 @@ chmod 640 '/etc/sysctl.d/shieldwall.conf'
 chown "$USER" '/etc/sysctl.d/shieldwall.conf'
 
 log 'LOGGING CONFIG'
-cp "${DIR_SETUP}/files/rsyslog/forward.conf" '/etc/rsyslog.d/0_shieldwall_forward.conf'
-cp "${DIR_SETUP}/files/rsyslog/box.conf" '/etc/rsyslog.d/1_shieldwall_box.conf'
-cp "${DIR_SETUP}/files/rsyslog/update.conf" '/etc/rsyslog.d/1_shieldwall_update.conf'
-cp "${DIR_SETUP}/files/rsyslog/nftables.conf" '/etc/rsyslog.d/1_shieldwall_nftables.conf'
-cp "${DIR_SETUP}/files/rsyslog/proxy.conf" '/etc/rsyslog.d/1_shieldwall_proxy.conf'
-cp "${DIR_SETUP}/files/logrotate" '/etc/logrotate.d/shieldwall'
+cp "${DIR_SETUP}/files/log/rsyslog.conf" '/etc/rsyslog.d/shieldwall.conf'
+cp "${DIR_SETUP}/files/log/logrotate" '/etc/logrotate.d/shieldwall'
 
 chown "$USER" /etc/rsyslog.d/*shieldwall*
 chown "$USER" '/etc/logrotate.d/shieldwall'
 
 new_service 'rsyslog'
 systemctl restart logrotate.service
+
+log 'NETFLOW CONFIG'
+
+cp "${DIR_SETUP}/files/softflowd.conf" '/etc/softflowd/shieldwall.conf'
+chown "$USER" '/etc/softflowd/shieldwall.conf'
+new_service 'softflowd@shieldwall'
+
+log 'METRIC CONFIG (PROMETHEUS)'
+
+PROM_NODE_EXPORTER_VERSION='1.7.0'
+PROM_PROXY_VERSION='1.0'
+
+wget "https://github.com/prometheus/node_exporter/releases/download/v${PROM_NODE_EXPORTER_VERSION}/node_exporter-${PROM_NODE_EXPORTER_VERSION}.linux-${CPU_ARCH}.tar.gz" -O '/tmp/node_exporter.tar.gz'
+tar -xzf '/tmp/node_exporter.tar.gz' -C '/tmp/' --strip-components=1
+mv '/tmp/node_exporter' '/usr/local/bin/prometheus_node_exporter'
+
+wget "https://github.com/shield-wall-net/Prometheus-Proxy/releases/download/${PROM_PROXY_VERSION}/prometheus-proxy-client-linux-${CPU_ARCH}-CGO0.tar.gz" -O '/tmp/prometheus_proxy.tar.gz'
+tar -xzf '/tmp/prometheus_proxy.tar.gz' -C '/tmp/' --strip-components=1
+mv "prometheus-proxy-client-linux-${CPU_ARCH}-CGO0" '/usr/local/bin/prometheus_proxy_client'
+
+cp "${DIR_SETUP}/files/metrics/prometheus_exporter.sh" '/usr/local/bin/prometheus_exporter.sh'
+cp "${DIR_SETUP}/files/metrics/shieldwall_metrics.service" '/etc/systemd/system/shieldwall_metrics.service'
+cp "${DIR_SETUP}/files/metrics/prometheus_node_exporter.yml" '/etc/prometheus_node_exporter.yml'
+chown "$USER" '/usr/local/bin/prometheus_node_exporter' '/usr/local/bin/prometheus_proxy_client' '/usr/local/bin/prometheus_exporter.sh' '/etc/systemd/system/shieldwall_metrics.service' '/etc/prometheus_node_exporter.yml'
+
+new_service 'shieldwall_metrics'
 
 echo '#########################################'
 log 'SETUP FINISHED! Please reboot the system!'

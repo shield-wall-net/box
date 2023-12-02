@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eo pipefail
 
 echo ''
 echo '######################'
@@ -15,10 +15,29 @@ then
 fi
 
 # shellcheck disable=SC2009
-if ! [[ -f '/lib/systemd/systemd' ]] || ! ps 1 | grep -qE 'systemd|/sbin/init'
+if ! [ -f '/lib/systemd/systemd' ] || ! ps 1 | grep -qE 'systemd|/sbin/init'
 then
   echo "ERROR: ShieldWall depends on Systemd! Init process is other!"
   exit 1
+fi
+
+# todo: support for dns
+if [ -z "$1" ]
+then
+  echo "ERROR: You need to supply the controller IP (v4) as argument 1!"
+  exit 1
+fi
+
+set -u
+
+CONTROLLER_IP="$1"
+echo "${CONTROLLER_IP} controller.shieldwall" >> '/etc/hosts'
+
+if ! [ -f '/etc/shieldwall_id.txt' ]
+then
+  echo "WARNING: ShieldWall-Box-ID was not found! (/etc/shieldwall_id.txt)"
+  echo '00000000-0000-0000-0000-000000000000' > '/etc/shieldwall_id.txt'
+  echo '127.0.0.1 00000000-0000-0000-0000-000000000000.box.shieldwall' >> '/etc/hosts'
 fi
 
 function log() {
@@ -77,7 +96,7 @@ sleep 5
 
 log 'INSTALLING DEPENDENCIES & UTILS'
 apt update
-apt -y --upgrade install openssl python3 wget gpg lsb-release apt-transport-https ca-certificates gnupg curl net-tools dnsutils zip ncdu
+apt -y --upgrade install openssl python3 wget gpg lsb-release apt-transport-https ca-certificates gnupg curl net-tools dnsutils zip ncdu man
 
 log 'DOWNLOADING SETUP FILES'
 DIR_SETUP="/tmp/box-${BOX_VERSION}"
@@ -112,7 +131,7 @@ fi
 
 if ! grep -q "$USER" < '/etc/passwd'
 then
-  useradd "$USER" --shell /bin/bash --home-dir "$DIR_HOME" --create-home --uid "$USER_ID"
+  useradd "$USER" --shell '/bin/bash' --home-dir "$DIR_HOME" --create-home --uid "$USER_ID"
 fi
 chown -R "$USER":'root' "$DIR_HOME"
 chmod 750 "$DIR_HOME"
@@ -141,9 +160,10 @@ then
   rm '/tmp/dummy.txt'
   ln -s '/etc/ssl/certs/shieldwall.ca.crt' '/etc/ssl/certs/shieldwall.trusted_cas.crt'
 fi
-chown "$USER" '/etc/ssl/certs/shieldwall.box.crt' '/etc/ssl/private/shieldwall.box.key' '/etc/ssl/certs/shieldwall.ca.crt'
+chown "$USER":'ssl-cert' '/etc/ssl/certs/shieldwall.box.crt' '/etc/ssl/private/shieldwall.box.key' '/etc/ssl/certs/shieldwall.ca.crt'
 chown "$USER":'ssl-cert' '/etc/ssl/private'
 chmod 750 '/etc/ssl/private'
+chmod 640 '/etc/ssl/private/shieldwall.box.key'
 
 log 'UPDATING DEFAULT APT-REPOSITORIES'
 rm '/etc/apt/sources.list'
@@ -214,6 +234,7 @@ insert_nftables_block 'input'
 insert_nftables_block 'prerouting_dnat'
 
 grep -v "{% " < '/tmp/nftables_managed.j2' > '/etc/nftables.d/managed.conf'
+sed -i "s/IP4_CONTROLLER = { 127.0.0.1 }/IP4_CONTROLLER = { ${CONTROLLER_IP }/g" '/etc/nftables.d/managed.conf'
 
 chmod 750 '/etc/nftables.d/'
 chmod 640 '/etc/nftables.conf' '/etc/nftables.d/managed.conf'
@@ -246,14 +267,27 @@ log 'METRIC CONFIG (PROMETHEUS)'
 
 PROM_NODE_EXPORTER_VERSION='1.7.0'
 PROM_PROXY_VERSION='1.0'
+PROM_USER='prometheus_exporter'
 
-wget "https://github.com/prometheus/node_exporter/releases/download/v${PROM_NODE_EXPORTER_VERSION}/node_exporter-${PROM_NODE_EXPORTER_VERSION}.linux-${CPU_ARCH}.tar.gz" -O '/tmp/node_exporter.tar.gz'
-tar -xzf '/tmp/node_exporter.tar.gz' -C '/tmp/' --strip-components=1
-mv '/tmp/node_exporter' '/usr/local/bin/prometheus_node_exporter'
+if ! grep -q "$PROM_USER" < '/etc/passwd'
+then
+  useradd "$PROM_USER" --shell '/usr/sbin/nologin' --uid "$(( USER_ID + 1 ))"
+  usermod -a -G 'ssl-cert' "$PROM_USER"
+fi
 
-wget "https://github.com/shield-wall-net/Prometheus-Proxy/releases/download/${PROM_PROXY_VERSION}/prometheus-proxy-client-linux-${CPU_ARCH}-CGO0.tar.gz" -O '/tmp/prometheus_proxy.tar.gz'
-tar -xzf '/tmp/prometheus_proxy.tar.gz' -C '/tmp/' --strip-components=1
-mv "prometheus-proxy-client-linux-${CPU_ARCH}-CGO0" '/usr/local/bin/prometheus_proxy_client'
+if ! [ -f '/usr/local/bin/prometheus_node_exporter' ]
+then
+  wget "https://github.com/prometheus/node_exporter/releases/download/v${PROM_NODE_EXPORTER_VERSION}/node_exporter-${PROM_NODE_EXPORTER_VERSION}.linux-${CPU_ARCH}.tar.gz" -O '/tmp/node_exporter.tar.gz'
+  tar -xzf '/tmp/node_exporter.tar.gz' -C '/tmp/' --strip-components=1
+  mv '/tmp/node_exporter' '/usr/local/bin/prometheus_node_exporter'
+fi
+
+if ! [ -f '/usr/local/bin/prometheus_proxy_client' ]
+then
+  wget "https://github.com/shield-wall-net/Prometheus-Proxy/releases/download/${PROM_PROXY_VERSION}/prometheus-proxy-client-linux-${CPU_ARCH}-CGO0.tar.gz" -O '/tmp/prometheus_proxy.tar.gz'
+  tar -xzf '/tmp/prometheus_proxy.tar.gz' -C '/tmp/' --strip-components=1
+  mv "/tmp/prometheus-proxy-client-linux-${CPU_ARCH}-CGO0" '/usr/local/bin/prometheus_proxy_client'
+fi
 
 cp "${DIR_SETUP}/files/metrics/prometheus_exporter.sh" '/usr/local/bin/prometheus_exporter.sh'
 cp "${DIR_SETUP}/files/metrics/shieldwall_metrics.service" '/etc/systemd/system/shieldwall_metrics.service'

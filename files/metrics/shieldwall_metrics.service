@@ -10,7 +10,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/prometheus_exporter.sh
+ExecStart=/bin/bash /usr/local/bin/prometheus_exporter.sh
 ExecStop=/usr/bin/pkill -f prometheus
 
 User=prometheus_exporter

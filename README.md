@@ -91,3 +91,7 @@ wget https://raw.githubusercontent.com/shield-wall-net/box/latest/scripts/setup.
 bash setup.sh
 # reboot
 ```
+
+### Why Debian?
+
+The config can be ported later on - but we need to start somewhere.

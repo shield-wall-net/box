@@ -28,6 +28,13 @@ then
   exit 1
 fi
 
+IS_CONTAINER=$(grep -c 'lxc|docker' < '/proc/self/mountinfo')
+if [[ "$IS_CONTAINER" != "0" ]]
+then
+  echo "ERROR: ShieldWall Box not supported to run in a containerized environment!"
+  exit 1
+fi
+
 set -u
 
 CONTROLLER_IP="$1"
@@ -65,6 +72,13 @@ function new_service() {
   systemctl restart "$1.service"
 }
 
+function purge_pkg() {
+  # shellcheck disable=SC2086
+  apt -y remove $1 || true
+  # shellcheck disable=SC2086
+  apt -y purge $1 || true
+}
+
 BOX_VERSION='latest'
 CTRL_VERSION='latest'
 REPO_CTRL="https://raw.githubusercontent.com/shield-wall-net/controller/${CTRL_VERSION}"
@@ -83,7 +97,7 @@ log 'SETTING DEFAULT LANGUAGE'
 export LANG="en_US.UTF-8"
 export LANGUAGE="en_US.UTF-8"
 export LC_ALL="en_US.UTF-8"
-update-locale LANG=en_US.UTF-8
+update-locale LANG=en_US.UTF-8 || true
 dpkg-reconfigure --frontend=noninteractive locales
 
 log 'INSTALLING TIMESYNC'
@@ -105,8 +119,12 @@ wget "https://codeload.github.com/shield-wall-net/box/zip/refs/heads/${BOX_VERSI
 unzip 'shieldwall_box.zip'
 
 log 'INSTALLING PACKET-FILTER'
-apt -y remove ufw firewalld* arptables ebtables xtables* iptables*
-apt -y purge ufw firewalld* arptables ebtables xtables* iptables*
+purge_pkg 'ufw'
+purge_pkg 'firewalld*'
+purge_pkg 'arptables'
+purge_pkg 'ebtables'
+purge_pkg 'xtables*'
+purge_pkg 'iptables*'
 apt -y --upgrade install nftables
 
 log 'INSTALLING SYSLOG'
@@ -120,13 +138,17 @@ apt -y --upgrade install squid-openssl
 
 log 'CREATING SERVICE-USER & DIRECTORIES'
 #DISTRO=$(lsb_release -i -s | tr '[:upper:]' '[:lower:]')
-CODENAME=$(lsb_release -c -s | tr '[:upper:]' '[:lower:]')
-CPU_ARCH=$(uname -i)
+CODENAME="$(lsb_release -c -s | tr '[:upper:]' '[:lower:]')"
+CPU_ARCH="$(uname -i)"
 # BOX_IPS=$(ip a | grep inet | cut -d ' ' -f6 | cut -d '/' -f1)
 
 if [[ "$CPU_ARCH" == 'unknown' ]] || [[ "$CPU_ARCH" == 'x86_64' ]]
 then
   CPU_ARCH='amd64'
+fi
+if [[ "$CPU_ARCH" == 'unknown' ]] && [[ "$IS_CONTAINER" == "0" ]]
+then
+  IS_CONTAINER="1"
 fi
 
 if ! grep -q "$USER" < '/etc/passwd'
@@ -166,9 +188,10 @@ chmod 750 '/etc/ssl/private'
 chmod 640 '/etc/ssl/private/shieldwall.box.key'
 
 log 'UPDATING DEFAULT APT-REPOSITORIES'
-rm '/etc/apt/sources.list'
+rm -f '/etc/apt/sources.list'
 cp "${DIR_SETUP}/files/apt/sources.list" '/etc/apt/sources.list'
 sed -i "s/CODENAME/$CODENAME/g" '/etc/apt/sources.list'
+apt update
 
 log 'ADDING PROXY BASE CONFIG'
 SQUID_USER='proxy'
@@ -285,7 +308,7 @@ fi
 if ! [ -f '/usr/local/bin/prometheus_proxy_client' ]
 then
   wget "https://github.com/shield-wall-net/Prometheus-Proxy/releases/download/${PROM_PROXY_VERSION}/prometheus-proxy-client-linux-${CPU_ARCH}-CGO0.tar.gz" -O '/tmp/prometheus_proxy.tar.gz'
-  tar -xzf '/tmp/prometheus_proxy.tar.gz' -C '/tmp/' --strip-components=1
+  tar -xzf '/tmp/prometheus_proxy.tar.gz' -C '/tmp/'
   mv "/tmp/prometheus-proxy-client-linux-${CPU_ARCH}-CGO0" '/usr/local/bin/prometheus_proxy_client'
 fi
 

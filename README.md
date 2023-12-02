@@ -35,6 +35,7 @@ ShieldWall firewalls are designed to be [managed centrally by their linked contr
     - [ ] IPList variables
     - [ ] Failover variables
     - [x] Sysctl settings
+    - [ ] GeoIP filtering
   - [ ] DNS Server
   - [ ] DHCP Server
   - [ ] Logging

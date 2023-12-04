@@ -85,11 +85,14 @@ REPO_CTRL="https://raw.githubusercontent.com/shield-wall-net/controller/${CTRL_V
 
 USER='shieldwall'
 USER_ID='2000'
+USER_ID_PROM='2001'
+USER_ID_NETFLOW='2002'
 DIR_HOME='/home/shieldwall'
 DIR_LIB='/var/local/lib/shieldwall'
 DIR_SCRIPT='/usr/local/bin/shieldwall'
 DIR_LOG='/var/log/shieldwall'
 DIR_CNF='/etc/shieldwall'
+DIR_CACHE='/var/cache/shieldwall'
 
 cd '/tmp/'
 
@@ -139,17 +142,43 @@ apt -y --upgrade install squid-openssl
 log 'CREATING SERVICE-USER & DIRECTORIES'
 #DISTRO=$(lsb_release -i -s | tr '[:upper:]' '[:lower:]')
 CODENAME="$(lsb_release -c -s | tr '[:upper:]' '[:lower:]')"
-CPU_ARCH="$(uname -i)"
-# BOX_IPS=$(ip a | grep inet | cut -d ' ' -f6 | cut -d '/' -f1)
+CPU_ARCH_RAW="$(uname -i)"
 
-if [[ "$CPU_ARCH" == 'unknown' ]] || [[ "$CPU_ARCH" == 'x86_64' ]]
-then
-  CPU_ARCH='amd64'
-fi
-if [[ "$CPU_ARCH" == 'unknown' ]] && [[ "$IS_CONTAINER" == "0" ]]
+# BOX_IPS=$(ip a | grep inet | cut -d ' ' -f6 | cut -d '/' -f1)
+if [[ "$CPU_ARCH_RAW" == 'unknown' ]] && [[ "$IS_CONTAINER" == "0" ]]
 then
   IS_CONTAINER="1"
 fi
+
+if [[ "$CPU_ARCH_RAW" == 'unknown' ]]
+then
+  $CPU_ARCH_RAW='x86_64'
+fi
+if [[ "$CPU_ARCH_RAW" == 'x86_64' ]]
+then
+  CPU_ARCH='amd64'
+else
+  CPU_ARCH="$CPU_ARCH_RAW"
+fi
+
+function download_latest_github_release_filter_arch() {
+  gh_user="$1"
+  gh_repo="$2"
+  out_file="$3"
+  filter="$4"
+  filter_exclude="$5"
+  arch="$6"
+  url="$(curl -s "https://api.github.com/repos/${gh_user}/${gh_repo}/releases/latest" | grep 'download_url' | grep "linux-${arch}" | grep "$filter" | grep -Ev "$filter_exclude" | head -n 1 | cut -d '"' -f 4)"
+  wget -4 "$url" -O "$out_file"
+}
+
+function download_latest_github_release_filter() {
+  download_latest_github_release_filter_arch "$1" "$2" "$3" "$4" "$5" "${CPU_ARCH}"
+}
+
+function download_latest_github_release() {
+  download_latest_github_release_filter "$1" "$2" "$3" '' '$%&'
+}
 
 if ! grep -q "$USER" < '/etc/passwd'
 then
@@ -163,11 +192,12 @@ then
   groupadd 'ssl-cert'
 fi
 
-mkdir -p "$DIR_LIB" "$DIR_SCRIPT" "$DIR_LOG" "$DIR_CNF"
+mkdir -p "$DIR_LIB" "$DIR_SCRIPT" "$DIR_LOG" "$DIR_CNF" "$DIR_CACHE"
 chown "$USER" "$DIR_LIB" "$DIR_CNF"
-chown "$USER":"$USER" "$DIR_SCRIPT" "$DIR_LOG"
-chmod 750 "$DIR_LIB" "$DIR_SCRIPT" "$DIR_CNF"
-chmod 770 "$DIR_LOG"
+chown "$USER":"$USER" "$DIR_SCRIPT" "$DIR_CACHE"
+chown 'root':'adm' "$DIR_LOG"
+chmod 750 "$DIR_LIB" "$DIR_SCRIPT" "$DIR_CNF" "$DIR_LOG"
+chmod 770 "$DIR_CACHE"
 
 touch "${DIR_CNF}/update.env"
 chown "$USER" "${DIR_CNF}/update.env"
@@ -203,7 +233,7 @@ SQUID_CONFIG="${SQUID_DIR_CONF}/squid.conf"
 
 usermod -a -G "$USER" "$SQUID_USER"
 mkdir -p /etc/systemd/system/squid.service.d/
-cp "${DIR_SETUP}/files/squid/override.conf" '/etc/systemd/system/squid.service.d/override.conf'
+cp "${DIR_SETUP}/files/squid/service_override.conf" '/etc/systemd/system/squid.service.d/override.conf'
 chown "$USER" '/etc/systemd/system/squid.service.d/override.conf'
 
 cp "${DIR_SETUP}/files/squid/main.conf" "$SQUID_CONFIG"
@@ -247,7 +277,7 @@ function insert_nftables_block() {
 }
 
 mkdir -p '/etc/nftables.d/' '/etc/systemd/system/nftables.service.d/'
-cp "${DIR_SETUP}/files/packet_filter/override.conf" '/etc/systemd/system/nftables.service.d/override.conf'
+cp "${DIR_SETUP}/files/packet_filter/service_override.conf" '/etc/systemd/system/nftables.service.d/override.conf'
 chown "$USER" '/etc/systemd/system/nftables.service.d/override.conf'
 
 cp "${DIR_SETUP}/files/packet_filter/main.conf" '/etc/nftables.conf'
@@ -274,40 +304,65 @@ log 'LOGGING CONFIG'
 cp "${DIR_SETUP}/files/log/rsyslog.conf" '/etc/rsyslog.d/shieldwall.conf'
 cp "${DIR_SETUP}/files/log/logrotate" '/etc/logrotate.d/shieldwall'
 
+# NOTE: logrotate config must be owned by root and not writable by group
 chown "$USER" /etc/rsyslog.d/*shieldwall*
-chown "$USER" '/etc/logrotate.d/shieldwall'
+
+touch "${DIR_CACHE}/netflow_data.flowlog"
 
 new_service 'rsyslog'
 systemctl restart logrotate.service
 
 log 'NETFLOW CONFIG'
 
-cp "${DIR_SETUP}/files/softflowd.conf" '/etc/softflowd/shieldwall.conf'
-chown "$USER" '/etc/softflowd/shieldwall.conf'
+NETFLOW_USER='netflow'
+
+if ! [ -f '/usr/local/bin/goflow2' ]
+then
+  # NOTE: repo has non-standard naming scheme for binaries..
+  download_latest_github_release_filter_arch 'netsampler' 'goflow2' '/tmp/goflow2' '' '$%&' "$CPU_ARCH_RAW"
+  mv '/tmp/goflow2' '/usr/local/bin/goflow2'
+  chown "$USER" '/usr/local/bin/goflow2'
+  chmod +x '/usr/local/bin/goflow2'
+fi
+
+if ! grep -q "$NETFLOW_USER" < '/etc/passwd'
+then
+  useradd "$NETFLOW_USER" --shell '/usr/sbin/nologin' --uid "$USER_ID_NETFLOW"
+  usermod -a -G "$USER" "$NETFLOW_USER"
+fi
+
+chown "$USER":"$USER" "${DIR_CACHE}/netflow_data.flowlog"
+chmod 660 "${DIR_CACHE}/netflow_data.flowlog"
+cp "${DIR_SETUP}/files/netflow/shieldwall_netflow.service" '/etc/systemd/system/shieldwall_netflow.service'
+chown "$USER" '/etc/systemd/system/shieldwall_netflow.service'
+new_service 'shieldwall_netflow'
+
+mkdir -p '/etc/systemd/system/softflowd@.service.d'
+touch '/etc/softflowd/shieldwall.conf'
+cp "${DIR_SETUP}/files/netflow/softflowd_service_override.conf" '/etc/systemd/system/softflowd@.service.d/override.conf'
+chown "$USER" '/etc/systemd/system/softflowd@.service.d/override.conf'
 new_service 'softflowd@shieldwall'
 
 log 'METRIC CONFIG (PROMETHEUS)'
 
-PROM_NODE_EXPORTER_VERSION='1.7.0'
-PROM_PROXY_VERSION='1.0'
 PROM_USER='prometheus_exporter'
 
 if ! grep -q "$PROM_USER" < '/etc/passwd'
 then
-  useradd "$PROM_USER" --shell '/usr/sbin/nologin' --uid "$(( USER_ID + 1 ))"
+  useradd "$PROM_USER" --shell '/usr/sbin/nologin' --uid "$USER_ID_PROM"
   usermod -a -G 'ssl-cert' "$PROM_USER"
 fi
 
 if ! [ -f '/usr/local/bin/prometheus_node_exporter' ]
 then
-  wget "https://github.com/prometheus/node_exporter/releases/download/v${PROM_NODE_EXPORTER_VERSION}/node_exporter-${PROM_NODE_EXPORTER_VERSION}.linux-${CPU_ARCH}.tar.gz" -O '/tmp/node_exporter.tar.gz'
+  download_latest_github_release 'prometheus' 'node_exporter' '/tmp/node_exporter.tar.gz'
   tar -xzf '/tmp/node_exporter.tar.gz' -C '/tmp/' --strip-components=1
   mv '/tmp/node_exporter' '/usr/local/bin/prometheus_node_exporter'
 fi
 
 if ! [ -f '/usr/local/bin/prometheus_proxy_client' ]
 then
-  wget "https://github.com/shield-wall-net/Prometheus-Proxy/releases/download/${PROM_PROXY_VERSION}/prometheus-proxy-client-linux-${CPU_ARCH}-CGO0.tar.gz" -O '/tmp/prometheus_proxy.tar.gz'
+  download_latest_github_release_filter 'shield-wall-net' 'Prometheus-Proxy' '/tmp/prometheus_proxy.tar.gz' 'client' '$%&'
   tar -xzf '/tmp/prometheus_proxy.tar.gz' -C '/tmp/'
   mv "/tmp/prometheus-proxy-client-linux-${CPU_ARCH}-CGO0" '/usr/local/bin/prometheus_proxy_client'
 fi

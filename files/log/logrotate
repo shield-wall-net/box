@@ -1,5 +1,21 @@
 # ShieldWall managed
 
+/var/log/shieldwall/netflow_data.flowlog {
+    su shieldwall shieldwall
+    hourly
+    rotate 24
+    missingok
+    notifempty
+    create 660 shieldwall shieldwall
+    compress
+    delaycompress
+    sharedscripts
+    postrotate
+        /usr/lib/rsyslog/rsyslog-rotate
+        /usr/bin/systemctl reload shieldwall_netflow.service || true
+    endscript
+}
+
 /var/log/shieldwall/*.log {
     su shieldwall shieldwall
     daily
@@ -9,4 +25,8 @@
     create 640 root adm
     compress
     delaycompress
+    sharedscripts
+    postrotate
+        /usr/lib/rsyslog/rsyslog-rotate
+    endscript
 }

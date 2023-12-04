@@ -1,0 +1,23 @@
+# ShieldWall managed
+
+[Unit]
+Description=ShieldWall firewall - NetFlow collector
+Documentation=https://docs.shield-wall.net
+Documentation=https://github.com/netsampler/goflow2
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/goflow2 -listen 'netflow://127.0.0.1:2055' -format 'json' -transport 'file' -transport.file '/var/cache/shieldwall/netflow_data.flowlog' -loglevel 'warn' -workers 2
+ExecReload=/bin/kill -HUP $MAINPID
+
+User=netflow
+Group=netflow
+Restart=on-failure
+RestartSec=10s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=netflow
+
+[Install]
+WantedBy=multi-user.target

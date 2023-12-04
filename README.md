@@ -23,11 +23,11 @@ ShieldWall firewalls are designed to be [managed centrally by their linked contr
     - [ ] Package versions
     - [ ] Config versions
     - [ ] Content of config files on disk
-    - [ ] Running processes
-    - [ ] Resource allocation (*Partitions, Disks, RAM, CPU, NICs*)
-    - [ ] Service states
+    - [x] Metrics ([Prometheus Node-Exporter](https://prometheus.io/docs/guides/node-exporter/))
+      - [ ] Running processes
+      - [ ] Service states
     - [ ] HA state
-    - [ ] NetFlow forwarding
+    - [x] NetFlow forwarding
 
 - [ ] Packages
   - [x] [NFTables packet-filter](https://wiki.nftables.org/wiki-nftables/index.php/What_is_nftables%3F)
@@ -37,10 +37,10 @@ ShieldWall firewalls are designed to be [managed centrally by their linked contr
     - [x] Sysctl settings
     - [ ] GeoIP filtering
   - [ ] DNS Server
-  - [ ] DHCP Server
-  - [ ] Logging
-    - [ ] Rsyslog & Logrotate
-    - [ ] Forwarding to controller
+  - [x] DHCP Server
+  - [x] Logging
+    - [x] Rsyslog & Logrotate
+    - [x] Forwarding to controller
   - [ ] Squid Proxy
     - [x] Being able to process HTTP+S
     - [x] SSL-Bump mode

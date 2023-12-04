@@ -89,7 +89,6 @@ USER_ID_PROM='2001'
 USER_ID_NETFLOW='2002'
 DIR_HOME='/home/shieldwall'
 DIR_LIB='/var/local/lib/shieldwall'
-DIR_SCRIPT='/usr/local/bin/shieldwall'
 DIR_LOG='/var/log/shieldwall'
 DIR_CNF='/etc/shieldwall'
 DIR_CACHE='/var/cache/shieldwall'
@@ -192,11 +191,11 @@ then
   groupadd 'ssl-cert'
 fi
 
-mkdir -p "$DIR_LIB" "$DIR_SCRIPT" "$DIR_LOG" "$DIR_CNF" "$DIR_CACHE"
+mkdir -p "$DIR_LIB" "$DIR_LOG" "$DIR_CNF" "$DIR_CACHE"
 chown "$USER" "$DIR_LIB" "$DIR_CNF"
-chown "$USER":"$USER" "$DIR_SCRIPT" "$DIR_CACHE"
+chown "$USER":"$USER" "$DIR_CACHE"
 chown 'root':'adm' "$DIR_LOG"
-chmod 750 "$DIR_LIB" "$DIR_SCRIPT" "$DIR_CNF" "$DIR_LOG"
+chmod 750 "$DIR_LIB" "$DIR_CNF" "$DIR_LOG"
 chmod 770 "$DIR_CACHE"
 
 touch "${DIR_CNF}/update.env"
@@ -240,9 +239,9 @@ cp "${DIR_SETUP}/files/squid/main.conf" "$SQUID_CONFIG"
 chown "$USER":"$SQUID_USER" "$SQUID_CONFIG"
 chmod 640 "$SQUID_CONFIG"
 
-cp "${DIR_SETUP}/files/squid/startup.sh" "${DIR_SCRIPT}/squid_startup.sh"
-chown "$USER":"$SQUID_USER" "${DIR_SCRIPT}/squid_startup.sh"
-chmod 750 "${DIR_SCRIPT}/squid_startup.sh"
+cp "${DIR_SETUP}/files/squid/startup.sh" '/usr/local/bin/squid_startup.sh'
+chown "$USER":"$SQUID_USER" '/usr/local/bin/squid_startup.sh'
+chmod 750 '/usr/local/bin/squid_startup.sh'
 
 squid_create_dir() {
   directory="$1"

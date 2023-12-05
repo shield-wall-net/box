@@ -7,7 +7,9 @@ Documentation=https://github.com/netsampler/goflow2
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/goflow2 -listen 'netflow://127.0.0.1:2055' -format 'json' -transport 'file' -transport.file '/var/cache/shieldwall/netflow_data.flowlog' -loglevel 'warn' -workers 2 -metrics.addr '127.0.0.1:9102'
+Environment=NETFLOW_FIELDS=TimeReceived,TimeFlowStartMs,TimeFlowEndMs,Bytes,Packets,SequenceNum,FlowDirection,InIf,OutIf,SrcVlan,DstVlan,VlanId,SrcAddr,DstAddr,Etype,EtypeName,Proto,ProtoName,SrcPort,DstPort,SrcMac,DstMac,IcmpType,IcmpCode,IcmpName,NextHop,IpTos,IpTtl,TcpFlags,ForwardingStatus,FragmentId,FragmentOffset
+
+ExecStart=/usr/local/bin/goflow2 -listen 'netflow://127.0.0.1:2055' -format 'json' -transport 'file' -transport.file '/var/cache/shieldwall/netflow_data.flowlog' -loglevel 'warn' -workers 2 -metrics.addr '127.0.0.1:9102' -format.selector "$NETFLOW_FIELDS"
 ExecReload=/bin/kill -HUP $MAINPID
 
 User=netflow

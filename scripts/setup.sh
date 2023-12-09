@@ -336,10 +336,8 @@ cp "${DIR_SETUP}/files/netflow/shieldwall_netflow.service" '/etc/systemd/system/
 chown "$USER" '/etc/systemd/system/shieldwall_netflow.service'
 new_service 'shieldwall_netflow'
 
-mkdir -p '/etc/systemd/system/softflowd@.service.d'
-touch '/etc/softflowd/shieldwall.conf'
-cp "${DIR_SETUP}/files/netflow/softflowd_service_override.conf" '/etc/systemd/system/softflowd@.service.d/override.conf'
-chown "$USER" '/etc/systemd/system/softflowd@.service.d/override.conf'
+cp "${DIR_SETUP}/files/netflow/softflowd.conf" '/etc/softflowd/shieldwall.conf'
+chown "$USER" '/etc/softflowd/shieldwall.conf'
 new_service 'softflowd@shieldwall'
 
 log 'METRIC CONFIG (PROMETHEUS)'

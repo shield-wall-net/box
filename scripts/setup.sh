@@ -318,7 +318,7 @@ NETFLOW_USER='netflow'
 if ! [ -f '/usr/local/bin/goflow2' ]
 then
   # NOTE: repo has non-standard naming scheme for binaries..
-  download_latest_github_release_filter_arch 'netsampler' 'goflow2' '/tmp/goflow2' '' '$%&' "$CPU_ARCH_RAW"
+  download_latest_github_release_filter_arch 'shield-wall-net' 'goflow2' '/tmp/goflow2' '' '$%&' "$CPU_ARCH_RAW"
   mv '/tmp/goflow2' '/usr/local/bin/goflow2'
   chown "$USER" '/usr/local/bin/goflow2'
   chmod +x '/usr/local/bin/goflow2'
